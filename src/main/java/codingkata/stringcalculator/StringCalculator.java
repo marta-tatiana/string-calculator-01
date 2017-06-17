@@ -1,19 +1,30 @@
 package codingkata.stringcalculator;
 
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-public class StringCalculator {
+class StringCalculator {
 
-    private String regex = "//(.*?)\\\\n(.*)";
-    private String delimeter = ",";
+    private static final String NEGATIVES_NOT_ALLOWED = "negatives not allowed: ";
+    private static final String MESSAGE_DELIMITER = ", ";
+    private static final int REGEX_LENGTH = 4;
+    private List<String> delimeters = new ArrayList<>(Collections.singletonList(","));
     private String inputs = null;
+    private List<Integer> negatives;
+    private int sum = 0;
+    private List<String> numbers;
 
-    public int add(String arguments) {
+    int add(String arguments) {
         inputs = arguments;
 
         return inputs.equals("") ? 0
-                : handleDelimeter().guardAgainstNewlines().sum();
+                : handleDelimeter()
+                .guardAgainstNewlines()
+                .splitInput()
+                .accumulatePreservingNegatives()
+                .throwIfNegatives().sum;
     }
 
     private StringCalculator handleDelimeter() {
@@ -25,34 +36,96 @@ public class StringCalculator {
     }
 
     private StringCalculator guardAgainstNewlines() {
-        inputs = inputs.replace("\n", delimeter);
+        inputs = inputs.replace("\n", delimeters.get(0));
         return this;
     }
 
-    private void extractDelimeter(String arguments) {
-        Pattern pattern = Pattern.compile(regex);
+    void extractDelimeter(String arguments) {
+        delimeters = new ArrayList<>();
+        Pattern pattern = Pattern.compile("\\[(.*?)\\]");
         Matcher matcher = pattern.matcher(arguments);
-        matcher.find();
-        delimeter = matcher.group(1);
-    }
-
-    private int sum() {
-        String[] numbers = inputs.split(delimeter);
-        int acc = 0;
-        for (String number : numbers) {
-            acc += Integer.parseInt(number);
+        while (matcher.find()) {
+            delimeters.add(arguments.substring(matcher.start() + 1, matcher.end() - 1));
         }
-        return acc;
     }
 
+    private StringCalculator splitInput() {
+        String delimeter = delimeters.get(0);
+        replaceDelimetersWith(delimeter);
+        numbers = Arrays.asList(inputs.split(Pattern.quote(delimeter)));
+        return this;
+    }
+cd 
+    private void replaceDelimetersWith(String delimeter) {
+        if (delimeters.size() > 1) {
+            Iterator<String> it = delimeters.iterator();
+            while (it.hasNext()) {
+                inputs = inputs.replace(it.next(), delimeter);
+            }
+        }
+    }
+
+    private StringCalculator throwIfNegatives() {
+        if (negativesInInput()) {
+            throw new IllegalArgumentException(buildErrorMessage());
+        }
+        return this;
+    }
+
+    private StringCalculator accumulatePreservingNegatives() {
+        Map<Boolean, List<Integer>> streams = numbers
+                .stream()
+                .map(Integer::parseInt)
+                .filter(x -> x <= 1000)
+                .collect(Collectors.partitioningBy(x -> (x >= 0)));
+
+        sum = streams.get(true)
+                .stream()
+                .reduce(0, (x,y) -> x+ y);
+
+        negatives = streams.get(false);
+
+        return this;
+    }
+
+    private boolean negativesInInput() {
+        return negatives.size() > 0;
+    }
+
+    private String buildErrorMessage() {
+        StringBuilder builder = new StringBuilder(NEGATIVES_NOT_ALLOWED);
+        Iterator<Integer> it = negatives.iterator();
+        while (it.hasNext()) {
+            builder.append(it.next());
+            if (it.hasNext()) {
+                builder.append(MESSAGE_DELIMITER);
+            }
+        }
+        return builder.toString();
+    }
 
     boolean isDelimeterProvided(String arguments) {
+        String regex = "//\\[(.*?)\\]\\\\n(.*)";
         return arguments.matches(regex);
     }
 
     String cutOffDellimeterDefinition(String arguments) {
-        return arguments.substring(delimeter.length() + 4);
+        return arguments.substring(countDelimeterLength());
     }
 
+    int countDelimeterLength() {
+        int length = REGEX_LENGTH;
+        for (String delimeter : delimeters) {
+            length += (delimeter.length() + 2);
+        }
+        return length;
+    }
 
+    void setDelimeters(String... passedDelimeters) {
+        delimeters = new ArrayList<String>(Arrays.asList(passedDelimeters));
+    }
+
+    List<String> getDelimeters() {
+        return delimeters;
+    }
 }
