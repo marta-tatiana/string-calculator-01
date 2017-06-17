@@ -55,7 +55,7 @@ class StringCalculator {
         numbers = Arrays.asList(inputs.split(Pattern.quote(delimeter)));
         return this;
     }
-cd 
+
     private void replaceDelimetersWith(String delimeter) {
         if (delimeters.size() > 1) {
             Iterator<String> it = delimeters.iterator();
